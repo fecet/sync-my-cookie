@@ -5,7 +5,7 @@ import { Button, Icon, Modal, Select, Spin, Switch, Tooltip } from 'antd';
 import { auto, AutoConfiguration, gist } from '../../utils/store';
 const { Textfit } = require('react-textfit');
 
-import _ from 'lodash';
+const _ = require('lodash');
 
 interface Prop {
   domain: string;
@@ -130,8 +130,8 @@ class Console extends Component<Prop, State> {
 
   private handleAutoPushConfigClick = async () => {
     const cookies = await gist.getCookies(this.props.domain);
-    const options = _.uniq(cookies.map((cookie) => cookie.name as string)).map((name) => {
-      return <Select.Option key={name}>{name}</Select.Option>;
+    const options = _.uniq(cookies.map((cookie) => cookie.name as string)).map((name: string) => {
+      return <Select.Option key={name} value={name}>{name}</Select.Option>;
     });
     this.setState({
       configuring: true,

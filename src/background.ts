@@ -1,4 +1,4 @@
-import _ from 'lodash';
+const _ = require('lodash');
 import * as chromeUtil from './utils/chrome';
 import {auto, AutoConfiguration, gist} from './utils/store';
 
@@ -67,12 +67,12 @@ chrome.cookies.onChanged.addListener(_.debounce(async () => {
       // 将 Cookie 数组转为 url##name => value, expirationDate 的 Object
       console.log('将 Cookie 数组转为 url##name => value, expirationDate 的 Object');
       const oldProcessed = _.mapValues(
-        _.keyBy(oldCookiesFiltered, (cookie) => `${cookie.url}##${cookie.name}`),
-        (cookie) => _.pick(cookie, ['value', 'expirationDate']),
+        _.keyBy(oldCookiesFiltered, (cookie: any) => `${cookie.url}##${cookie.name}`),
+        (cookie: any) => _.pick(cookie, ['value', 'expirationDate']),
       );
       const newProcessed = _.mapValues(
-        _.keyBy(newCookiesFiltered, (cookie) => `${cookie.url}##${cookie.name}`),
-        (cookie) => _.pick(cookie, ['value', 'expirationDate']),
+        _.keyBy(newCookiesFiltered, (cookie: any) => `${cookie.url}##${cookie.name}`),
+        (cookie: any) => _.pick(cookie, ['value', 'expirationDate']),
       );
       console.log('旧的处理后', oldProcessed);
       console.log('新的处理后', newProcessed);

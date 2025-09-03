@@ -3,6 +3,7 @@
 
 /build/*
 !/build/.gitkeep
+/dist
 
 .DS_Store
 .env.local
@@ -13,3 +14,8 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+*.crx
+*.pem
+*.zip
+key.pem

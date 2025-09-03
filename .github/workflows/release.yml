@@ -1,0 +1,145 @@
+name: Build and Release Extension
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., v2.0.1)'
+        required: true
+        type: string
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+      
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+      
+      - name: Build extension
+        run: yarn build
+      
+      - name: Create ZIP package
+        run: |
+          cd build
+          zip -r ../sync-my-cookie.zip *
+          cd ..
+      
+      - name: Install Chrome for CRX packaging
+        run: |
+          wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list'
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+      
+      - name: Create CRX package
+        run: |
+          mkdir -p dist
+          # Package without key (will generate new key)
+          google-chrome-stable --pack-extension=build
+          mv build.crx dist/sync-my-cookie.crx || true
+          # Remove generated key file as it's not needed
+          rm -f build.pem
+          echo "CRX package created (unsigned)"
+        continue-on-error: true
+      
+      - name: Get version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=${GITHUB_REF#refs/tags/}
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+      
+      - name: Read manifest version
+        id: manifest_version
+        run: |
+          MANIFEST_VERSION=$(cat build/manifest.json | grep '"version"' | head -1 | awk -F'"' '{print $4}')
+          echo "MANIFEST_VERSION=$MANIFEST_VERSION" >> $GITHUB_OUTPUT
+          echo "Manifest version: $MANIFEST_VERSION"
+      
+      - name: Generate SHA256 Checksums
+        id: checksums
+        run: |
+          echo "ZIP_SHA256=$(sha256sum sync-my-cookie.zip | cut -d' ' -f1)" >> $GITHUB_OUTPUT
+          if [ -f dist/sync-my-cookie.crx ]; then
+            echo "CRX_SHA256=$(sha256sum dist/sync-my-cookie.crx | cut -d' ' -f1)" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Create Release and Upload Assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Create release notes file
+          cat > release_notes.md << 'EOF'
+          ## SyncMyCookie ${{ steps.manifest_version.outputs.MANIFEST_VERSION }}
+          
+          ### Installation
+          
+          #### Manual Installation (Recommended)
+          1. Download `sync-my-cookie.zip`
+          2. Extract to a folder
+          3. Open Chrome and go to `chrome://extensions/`
+          4. Enable "Developer mode"
+          5. Click "Load unpacked" and select the extracted folder
+          
+          #### Direct CRX Installation (Limited)
+          1. Download `sync-my-cookie.crx`
+          2. Open Chrome and go to `chrome://extensions/`
+          3. Enable "Developer mode"
+          4. Drag and drop the CRX file onto the page
+          
+          **Note:** Chrome may block CRX files not from Chrome Web Store
+          
+          ### What's Changed
+          * Check the commits for detailed changes
+          
+          ### Checksums
+          * ZIP: `${{ steps.checksums.outputs.ZIP_SHA256 }}`
+          * CRX: `${{ steps.checksums.outputs.CRX_SHA256 }}`
+          EOF
+          
+          # Create release with the notes file
+          gh release create "${{ steps.get_version.outputs.VERSION }}" \
+            --title "Release ${{ steps.get_version.outputs.VERSION }}" \
+            --notes-file release_notes.md \
+            sync-my-cookie.zip \
+            dist/sync-my-cookie.crx
+      
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-packages
+          path: |
+            sync-my-cookie.zip
+            dist/sync-my-cookie.crx
+          retention-days: 30
+      
+      - name: Add Summary
+        run: |
+          echo "### Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- Version: ${{ steps.get_version.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Manifest Version: ${{ steps.manifest_version.outputs.MANIFEST_VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### SHA256 Checksums" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          sha256sum sync-my-cookie.zip >> $GITHUB_STEP_SUMMARY
+          if [ -f dist/sync-my-cookie.crx ]; then
+            sha256sum dist/sync-my-cookie.crx >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

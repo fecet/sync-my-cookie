@@ -11,7 +11,9 @@
     "dev:chrome": "node ./scripts/copyFiles.js && NODE_ENV=production  webpack --watch",
     "dev:web": "webpack-dev-server",
     "clean": "rm -rf build/*",
-    "lint": "tslint -p ."
+    "lint": "tslint -p .",
+    "pack:crx": "yarn build && node ./scripts/packCrx.js",
+    "pack:zip": "yarn build && cd build && zip -r ../sync-my-cookie.zip * && cd .."
   },
   "browserslist": [
     ">0.2%",
